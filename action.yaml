@@ -1,0 +1,60 @@
+name: Check if Pull Request is approved
+description: Check number of pull request approvals meets the requested value
+inputs:
+  approves-count:
+    description: Number of approvals to require for positive result
+    required: false
+    default: 1
+    type: string
+  fail:
+    description: If true will fail if required count of approvals is not met
+    required: false
+    default: false
+    type: boolean
+outputs:
+  result:
+    description: Truth value whether there is required number of approving reviews on the pull request
+    value: ${{ steps.check.outputs.result }}
+runs:
+  using: composite
+  steps:
+    - name: Check approving review count
+      uses: actions/github-script@v6
+      id: check
+      with:
+        result-encoding: string
+        script: |
+          // Get reviews from the GitHub API.
+          const reviews = await github.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: ${{ github.event.pull_request.number }}
+          });
+          
+          // Count approvals.
+          var approveCount = 0;
+          for await (const review of reviews.data) {
+            const state = review.state
+            console.log(`Review with status ${state} was submitted at ${review.submitted_at}.`)
+            if (state == "APPROVED") {
+              approveCount += 1
+            }
+          }
+          
+          requestedNumber = parseInt(${{ inputs.approves-count }})
+          if (approveCount < requestedNumber)
+          {
+            msg = `Number of approving reviews (${approveCount}) did not meet the requested number of approvals (${requestedNumber})!` 
+            if (${{ inputs.fail }}) {
+              core.setFailed(msg)
+            }
+            else {
+              console.log(msg)            
+            }
+          
+            return false
+          }
+          
+          msg = `Number of approving reviews (${approveCount}) meets the requested number of approvals (${requestedNumber})!` 
+          console.log(msg)
+          return true
