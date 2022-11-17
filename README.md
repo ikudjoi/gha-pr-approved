@@ -8,3 +8,12 @@ Requires the pull-requests read permission to your workflow:
 permissions:
   pull-requests: read
 ```
+
+# usage
+
+```yaml
+  - uses: ikudjoi/gha-pr-approved@main
+    with:
+      pr-number: 123
+      fail: false
+```
