@@ -34,12 +34,29 @@ runs:
             repo: context.repo.repo,
             pull_number: ${{ inputs.pr-number }}
           });
-          
+
+          // Find newest review for each reviewer
+          newestReviewByUser = {};          
+          for await (const review of reviews.data) {
+            if (!(review.user.id in newestReviewByUser)) {
+              newestReviewByUser[review.user.id] = review
+              continue
+            }
+            
+            prevReview = newestReviewByUser[review.user.id]
+            if (prevReview.submitted_at < review.submitted_at) {
+              console.log(`Discarded review with status ${prevReview.state} that was submitted at ${prevReview.submitted_at} by ${prevReview.user.login} because newer one was found by the same user.`)
+              newestReviewByUser[review.user.id] = review
+              continue          
+            }
+          }
+                    
           // Count approvals.
           var approveCount = 0;
-          for await (const review of reviews.data) {
-            const state = review.state
-            console.log(`Review with status ${state} was submitted at ${review.submitted_at}.`)
+          for (const userId in newestReviewByUser) {
+            const review = newestReviewByUser[userId]
+            const state = review.state          
+            console.log(`Review with status ${state} was submitted at ${review.submitted_at} by ${review.user.login}.`)
             if (state == "APPROVED") {
               approveCount += 1
             }
