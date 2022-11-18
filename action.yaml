@@ -1,6 +1,10 @@
 name: Check if Pull Request is approved
 description: Check number of pull request approvals meets the requested value
 inputs:
+  pr-number:
+    description: Number of the pull request
+    required: true
+    type: string
   approves-count:
     description: Number of approvals to require for positive result
     required: false
@@ -28,7 +32,7 @@ runs:
           const reviews = await github.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
             owner: context.repo.owner,
             repo: context.repo.repo,
-            pull_number: ${{ github.event.pull_request.number }}
+            pull_number: ${{ inputs.pr-number }}
           });
           
           // Count approvals.
