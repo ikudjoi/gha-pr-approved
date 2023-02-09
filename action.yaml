@@ -5,11 +5,6 @@ inputs:
     description: Number of the pull request
     required: true
     type: string
-  approves-count:
-    description: Number of approvals to require for positive result
-    required: false
-    default: 1
-    type: string
   fail:
     description: If true will fail if required count of approvals is not met
     required: false
@@ -28,54 +23,29 @@ runs:
       with:
         result-encoding: string
         script: |
-          // Get reviews from the GitHub API.
-          const reviews = await github.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews', {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: ${{ inputs.pr-number }}
+          // Get approved pull requests from the GitHub API.
+          const repo = `${context.repo.owner}/${context.repo.repo}`;
+          const query = `repo:${repo}+is:pr+is:open+review:approved`
+          const pulls = await github.rest.search.issuesAndPullRequests({
+            q: query,
           });
+          
+          this_pr_find_result = pulls.data.items.find((i) => { return i.number == ${{ inputs.pr-number }}; })
+          approved = (typeof this_pr_find_result !== "undefined");
 
-          // Find newest review for each reviewer
-          newestReviewByUser = {};          
-          for await (const review of reviews.data) {
-            if (!(review.user.id in newestReviewByUser)) {
-              newestReviewByUser[review.user.id] = review
-              continue
-            }
-            
-            prevReview = newestReviewByUser[review.user.id]
-            if (prevReview.submitted_at < review.submitted_at) {
-              console.log(`Discarded review with status ${prevReview.state} that was submitted at ${prevReview.submitted_at} by ${prevReview.user.login} because newer one was found by the same user.`)
-              newestReviewByUser[review.user.id] = review
-              continue          
-            }
-          }
-                    
-          // Count approvals.
-          var approveCount = 0;
-          for (const userId in newestReviewByUser) {
-            const review = newestReviewByUser[userId]
-            const state = review.state          
-            console.log(`Review with status ${state} was submitted at ${review.submitted_at} by ${review.user.login}.`)
-            if (state == "APPROVED") {
-              approveCount += 1
-            }
-          }
-          
-          requestedNumber = parseInt(${{ inputs.approves-count }})
-          if (approveCount < requestedNumber)
+          if (approved)
           {
-            msg = `Number of approving reviews (${approveCount}) did not meet the requested number of approvals (${requestedNumber})!` 
-            if (${{ inputs.fail }}) {
-              core.setFailed(msg)
-            }
-            else {
-              console.log(msg)            
-            }
-          
-            return false
+            msg = `The pull request is approved!`;
+            console.log(msg);
+            return true;
           }
           
-          msg = `Number of approving reviews (${approveCount}) meets the requested number of approvals (${requestedNumber})!` 
-          console.log(msg)
-          return true
+          msg = `The pull request is not approved!`;
+          if (${{ inputs.fail }}) {
+            core.setFailed(msg);
+          }
+          else {
+            console.log(msg);
+          }
+        
+          return false;
