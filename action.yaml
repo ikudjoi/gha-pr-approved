@@ -2,7 +2,11 @@ name: Check if Pull Request is approved
 description: Check number of pull request approvals meets the requested value
 inputs:
   pr-number:
-    description: Number of the pull request
+    description: Number of the Pull Request
+    required: true
+    type: string
+  head-ref:
+    description: Head branch name
     required: true
     type: string
   fail:
@@ -25,11 +29,12 @@ runs:
         script: |
           // Get approved pull requests from the GitHub API.
           const repo = `${context.repo.owner}/${context.repo.repo}`;
-          const query = `repo:${repo}+is:pr+is:open+review:approved`
+          const query = `repo:${repo}+is:pr+is:open+review:approved+head:${{ inputs.head-ref }}`;
           const pulls = await github.rest.search.issuesAndPullRequests({
             q: query,
+            per_page: 1,
           });
-          
+
           this_pr_find_result = pulls.data.items.find((i) => { return i.number == ${{ inputs.pr-number }}; })
           approved = (typeof this_pr_find_result !== "undefined");
 
