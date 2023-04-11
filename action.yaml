@@ -30,10 +30,34 @@ runs:
           // Get approved pull requests from the GitHub API.
           const repo = `${context.repo.owner}/${context.repo.repo}`;
           const query = `repo:${repo}+is:pr+is:open+review:approved+head:${{ inputs.head-ref }}`;
-          const pulls = await github.rest.search.issuesAndPullRequests({
-            q: query,
-            per_page: 1,
-          });
+          let pulls = null;
+          
+          for (var attempt=0;attempt<4;attempt++)
+          {
+            try {
+              pulls = await github.rest.search.issuesAndPullRequests({
+                q: query,
+                per_page: 1,
+              });
+              break;
+            } catch (error) {
+              // Do not tolerate second failure
+              if (attempt >= 3) {
+                core.setFailed('Fourth failure');
+                return false;
+              }
+
+              // Eat all errors for this dev version
+              console.log("printing error");
+              console.log(error);
+              console.log(error.response.headers);
+              wait_until_epoch = error.response.headers['x-ratelimit-reset'] * 1000;
+              now_epoch = Date.now();
+              wait_ms = wait_until_epoch - now_epoch + 1000;
+              console.log(`Sleeping for ${wait_ms}`);
+              await new Promise(resolve => setTimeout(resolve, wait_ms));
+            }
+          }
 
           this_pr_find_result = pulls.data.items.find((i) => { return i.number == ${{ inputs.pr-number }}; })
           approved = (typeof this_pr_find_result !== "undefined");
