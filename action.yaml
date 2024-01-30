@@ -22,7 +22,7 @@ runs:
   using: composite
   steps:
     - name: Check approving review count
-      uses: actions/github-script@v6
+      uses: actions/github-script@v7
       id: check
       with:
         result-encoding: string
